@@ -39,6 +39,10 @@
 -   `02_02_compare_different_TAS.R`:
     -   Explores how *total* and *direct* thermal response strengths vary with climate class and vegetation class.
     -   No export.
+-   `02_03_simulate_identifiability.R`:
+    -   Runs simulation experiments with known direct and apparent contributions.
+    -   Tests whether the workflow recovers those components in direct-only, apparent-only, mixed, and confounded cases.
+    -   Exports 2 csv files (`simulation_identifiability_replications.csv` and `simulation_identifiability_summary.csv`) and 1 figure (`tas_identifiability_simulation.png`).
 
 3.  Identify Drivers of Total and Direct Thermal Response Strength
 
