@@ -305,7 +305,25 @@ for (id in 1:nrow(site_info)) {
   ac_u$season <- usCreateSeasonFactorYdayYear(
     ac_u$DateTime - 15*60, starts = seasonStarts)  # it sets back 15 min.
   #
-  uStarTh <- EProc$sEstUstarThold(seasonFactor = ac_u$season)
+  # Estimate uStar threshold uncertainty by bootstrap.
+  # The 2.5% and 97.5% quantiles are the percentile-based 95% CI bounds.
+  uStarBootstrapSamples <- 1000L
+  uStarBootstrapProbs <- c(0.025, 0.5, 0.975)
+  EProc$sEstimateUstarScenarios(
+    seasonFactor = ac_u$season,
+    nSample = uStarBootstrapSamples,
+    probs = uStarBootstrapProbs,
+    isVerbose = FALSE
+  )
+  uStarScenarios <- EProc$sGetUstarScenarios()
+  uStarTh <- uStarScenarios %>%
+    transmute(
+      season = .data$season,
+      uStar = .data$uStar,
+      uStarTh_q025 = .data[[names(uStarScenarios)[3]]],
+      uStarTh_q50 = .data[[names(uStarScenarios)[4]]],
+      uStarTh_q975 = .data[[names(uStarScenarios)[5]]]
+    )
   
   # gap fill NEE, air temperature and soil temperature
   # By default the gap-filling uses annually aggregated estimates of uStar-Threshold.
@@ -316,8 +334,11 @@ for (id in 1:nrow(site_info)) {
   EProc$sMDSGapFillAfterUstar('NEE', FillAll = FALSE, isVerbose = FALSE)
   ac$NEE_uStar_f <- EProc$sExportResults()$NEE_uStar_f
   #
-  ac_u <- ac_u %>% left_join(uStarTh[,3:4], by="season")
+  ac_u <- ac_u %>% left_join(uStarTh, by="season")
   ac$uStarTh <- ac_u$uStar
+  ac$uStarTh_ci_lower95 <- ac_u$uStarTh_q025
+  ac$uStarTh_median <- ac_u$uStarTh_q50
+  ac$uStarTh_ci_upper95 <- ac_u$uStarTh_q975
   #
   #########################################end with Ustar filtering#######################################
   if (site_info$SWC_use[id] == 'YES') {
@@ -443,7 +464,12 @@ for (id in 1:nrow(site_info)) {
 
   iStart = a_measure_night_complete$YEAR[1]
   iEnd   = a_measure_night_complete$YEAR[nrow(a_measure_night_complete)]
-  ac <- ac %>% filter(between(YEAR, iStart, iEnd)) %>% dplyr::select(c(YEAR, MONTH, DAY, DOY, HOUR, MINUTE, NEE_uStar_f, TA, TS, SWC, SW_IN, daytime))
+  ac <- ac %>% filter(between(YEAR, iStart, iEnd)) %>%
+    dplyr::select(c(
+      YEAR, MONTH, DAY, DOY, HOUR, MINUTE, NEE_uStar_f,
+      uStarTh, uStarTh_ci_lower95, uStarTh_median, uStarTh_ci_upper95,
+      TA, TS, SWC, SW_IN, daytime
+    ))
 
   # I have to gap fill TA, TS, NEE;
   T_gf <- ac %>% group_by(DOY, HOUR, MINUTE) %>% summarise(TA_gf=mean(TA, na.rm=T), TS_gf=mean(TS, na.rm=T), NEE_gf=mean(NEE_uStar_f, na.rm=T))  # for gap fill only.
